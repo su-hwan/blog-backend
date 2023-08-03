@@ -7,6 +7,7 @@ POST /register
 {username: 'velopert', password: 'mypass123'}
 */
 export const register = async (ctx) => {
+  console.log('start execute register');
   const schema = Joi.object().keys({
     username: Joi.string().alphanum().min(3).max(20).required(),
     password: Joi.string().required(),
@@ -17,6 +18,7 @@ export const register = async (ctx) => {
     ctx.body = result.error;
     return;
   }
+  console.log('request.body:', ctx.request.body);
   const { username, password } = ctx.request.body;
 
   try {
