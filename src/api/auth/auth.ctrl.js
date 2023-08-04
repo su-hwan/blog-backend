@@ -7,7 +7,6 @@ POST /register
 {username: 'velopert', password: 'mypass123'}
 */
 export const register = async (ctx) => {
-  console.log('start execute register');
   const schema = Joi.object().keys({
     username: Joi.string().alphanum().min(3).max(20).required(),
     password: Joi.string().required(),
@@ -18,7 +17,7 @@ export const register = async (ctx) => {
     ctx.body = result.error;
     return;
   }
-  console.log('request.body:', ctx.request.body);
+  console.log('POST /register request.body:', ctx.request.body);
   const { username, password } = ctx.request.body;
 
   try {
@@ -35,6 +34,12 @@ export const register = async (ctx) => {
 
     //응답할 데이터에서 password 제거
     ctx.body = user.serialize();
+
+    const token = user.generateToken();
+    ctx.cookies.set('access_token', token, {
+      maxAge: 1000 * 60 * 60 * 24 * 7, // 7일
+      httpOnly: true,
+    });
   } catch (error) {
     ctx.status = 500;
     throw error;
@@ -88,6 +93,7 @@ export const login = async (ctx) => {
 //로그인 상태 확인
 export const check = async (ctx) => {
   const { user } = ctx.state; //jwtMiddleware에서 ctx.state.user 세팅 됨
+  console.log('POST /user user:', user);
   if (!user) {
     ctx.status = 401; //Unauthorized
     return;
