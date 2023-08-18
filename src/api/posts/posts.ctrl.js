@@ -1,6 +1,39 @@
 import Post from '../../models/post';
 import { Types } from 'mongoose';
 import Joi from 'joi';
+import sanitizeHtml from 'sanitize-html';
+
+const sanitizeOption = {
+  allowedTags: [
+    'h1',
+    'h2',
+    'b',
+    'i',
+    'u',
+    's',
+    'p',
+    'ul',
+    'ol',
+    'li',
+    'blockquote',
+    'a',
+    'img',
+  ],
+  allowedAttributes: {
+    a: ['href', 'name', 'target'],
+    img: ['src'],
+    li: ['class'],
+  },
+  allowedSchemas: ['data', 'http'],
+};
+
+//html을 없애고 내용이 너무 길면 200자로 제한하는 함수
+const removeHtmlAndShorten = (body) => {
+  const filtered = sanitizeHtml(body, {
+    allowedTags: [], //허용 tag
+  });
+  return filtered.length < 200 ? filtered : `${filtered.slice(0, 200)}...`;
+};
 
 /* 포스트 작성
 POST /api/posts
@@ -25,17 +58,18 @@ export const write = async (ctx) => {
 
   //REST API의 Request Body는 ctx.request.body에서 조회
   const { title, body, tags } = ctx.request.body;
-  console.log(`ctx.request.body:${ctx.request.body}`);
   const post = new Post({
     title,
-    body,
+    body: sanitizeHtml(body, sanitizeOption),
     tags,
     user: ctx.state.user,
   });
   try {
     await post.save();
+    console.log('/posts post.save : ', post);
     ctx.body = post;
   } catch (e) {
+    console.log('/posts error: ', e);
     ctx.throw(500, e);
   }
 };
@@ -70,8 +104,7 @@ export const list = async (ctx) => {
       //.map((post) => post.toJSON()) //위에서 lean()호출했으므로 제외
       .map((post) => ({
         ...post,
-        body:
-          post.body.length >= 200 ? `${post.body.slice(0, 200)}...` : post.body,
+        body: removeHtmlAndShorten(post.body),
       }));
   } catch (e) {
     ctx.throw(500, e);
@@ -145,10 +178,15 @@ export const update = async (ctx) => {
   //   return;
   // }
 
+  const nextData = { ...ctx.request.body };
+  //body값이 주어졌으면 HTML 필터링
+  if (nextData.body) {
+    nextData.body = sanitizeHtml(nextData.body);
+  }
   try {
-    const post = await Post.findByIdAndUpdate(id, ctx.request.body, {
-      new: true,
-    });
+    const post = await Post.findByIdAndUpdate(id, nextData, {
+      new: true, //이 값을 설정하면 업데이트 데이터 반환, false 이전 데이터
+    }).exec();
     if (!post) {
       ctx.status = 404;
       return;
