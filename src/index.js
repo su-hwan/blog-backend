@@ -10,6 +10,9 @@ import Koa from 'koa';
 import Router from 'koa-router';
 import bodyParser from 'koa-bodyparser';
 import mongoose from 'mongoose';
+import serve from 'koa-static';
+import path from 'path';
+import send from 'koa-send';
 import api from './api';
 import jwtMiddleware from './lib/jwtMiddleware';
 // import checkLoggedIn from './lib/checkLoggedIn';
@@ -49,9 +52,18 @@ app.use(jwtMiddleware);
 
 //app 인스턴스에 라우터 적용
 app.use(router.routes()).use(router.allowedMethods());
+const buildDirectory = path.resolve(__dirname, '../../blog-frontend/build');
+app.use(serve(buildDirectory));
+app.use(async (ctx) => {
+  //Not found 이고 주소가 /api로 시작하지 않는 경우
+  if (ctx.status === 404 && ctx.path.indexOf('/api') !== 0) {
+    //index.html 내용을 반환
+    await send(ctx, 'index.html', { root: buildDirectory });
+  }
+});
 
 //PORT 가 지정되지 않았다면 4000를 사용
 const port = PORT || 4000;
 app.listen(port, () => {
-  console.log('Listening to port 4000');
+  console.log('Listening to port %d', port);
 });
